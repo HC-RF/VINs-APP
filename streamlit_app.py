@@ -704,18 +704,63 @@ def render_compare() -> None:
 
 # --- Main -------------------------------------------------------------------
 
+#: Typography. Streamlit sizes almost everything in rem, so lifting the root
+#: font scales the whole app proportionally rather than leaving a patchwork of
+#: mismatched overrides. Tab labels get an extra bump because they sit in a
+#: dense strip and were the hardest thing on the page to read.
+CUSTOM_CSS = """
+<style>
+  html { font-size: 17.5px; }
+
+  /* Tab labels.
+     Selectors are keyed on data-testid, which Streamlit keeps stable; the
+     st-emotion-cache-* classes are generated and change between releases.
+     Both the current structure (div[data-testid="stTab"]) and the older one
+     (button[role="tab"] inside a baseweb tab-list) are covered, so this
+     survives a Streamlit upgrade in either direction. */
+  [data-testid="stTab"],
+  .stTabs [data-baseweb="tab-list"] button[role="tab"] {
+      padding: 0.55rem 1rem;
+      height: auto;
+  }
+  [data-testid="stTab"] p,
+  [data-testid="stTab"] [data-testid="stMarkdownContainer"],
+  .stTabs [data-baseweb="tab-list"] button[role="tab"] p {
+      font-size: 1.08rem !important;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+  }
+
+  /* Metric values read as headline numbers; keep them clearly dominant. */
+  [data-testid="stMetricValue"] { font-size: 1.7rem; }
+  [data-testid="stMetricLabel"] p { font-size: 0.9rem; }
+
+  /* The extracted-VIN list is monospace; give it room to breathe. */
+  .stCode, .stCode code { font-size: 0.98rem; line-height: 1.65; }
+
+  /* Captions default to genuinely small; nudge them back to readable. */
+  [data-testid="stCaptionContainer"] p { font-size: 0.92rem; }
+
+  .stDataFrame { font-size: 0.97rem; }
+</style>
+"""
+
+
 def main() -> None:
     init_state()
+    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
     refresh, verify = render_sidebar()
 
-    decode_tab, extract_tab, bulk_tab, compare_tab, about_tab = st.tabs(
-        ["🔍 Decode", "📄 Extract from Excel", "📋 Bulk & Export",
+    # Extract leads: the usual starting point is a spreadsheet, not a VIN
+    # someone has already typed out. Streamlit opens on the first tab.
+    extract_tab, decode_tab, bulk_tab, compare_tab, about_tab = st.tabs(
+        ["📄 Extract from Excel", "🔍 Decode", "📋 Bulk & Export",
          "⚖️ Compare", "ℹ️ How to read this"]
     )
-    with decode_tab:
-        render_decode(refresh, verify)
     with extract_tab:
         render_extract()
+    with decode_tab:
+        render_decode(refresh, verify)
     with bulk_tab:
         render_bulk()
     with compare_tab:
