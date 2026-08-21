@@ -49,6 +49,11 @@ from app.schemas.vehicle import VehicleRecord  # noqa: E402
 from app.services.compare_service import build_comparison  # noqa: E402
 from app.services.decode_service import DecodeService  # noqa: E402
 from app.services.export_service import export_filename, to_csv, to_xlsx  # noqa: E402
+from app.services.vin_extraction import (  # noqa: E402
+    Verdict,
+    extract_from_workbook,
+    to_workbook_bytes,
+)
 from app.vin.validate import parse_vin_list  # noqa: E402
 
 SAMPLE_VINS = [
@@ -140,6 +145,8 @@ def init_state() -> None:
     st.session_state.setdefault("summary", None)
     st.session_state.setdefault("vin_text", "")
     st.session_state.setdefault("compare_selection", [])
+    st.session_state.setdefault("extraction", None)  # last ExtractionResult
+    st.session_state.setdefault("extraction_name", "")
 
 
 def all_records() -> list[VehicleRecord]:
@@ -497,6 +504,143 @@ def render_bulk() -> None:
         )
 
 
+# --- Extract tab ------------------------------------------------------------
+
+def _send_extracted_to_decoder(vins: list[str]) -> None:
+    """Load extracted VINs into the Decode tab's input box.
+
+    Must be an on_click callback: `vin_text` backs a widget, and session state
+    behind a widget cannot be reassigned after that widget has rendered.
+    """
+    st.session_state["vin_text"] = "\n".join(vins)
+
+
+def render_extract() -> None:
+    st.subheader("Extract VINs from a spreadsheet")
+    st.caption(
+        "Scans every cell of every sheet for VINs — including ones buried in "
+        "remarks columns, labelled `VIN:` / `CH#` / `Chassis No.`, or split by "
+        "spaces and hyphens."
+    )
+
+    upload = st.file_uploader(
+        "Excel or CSV file",
+        type=["xlsx", "xlsm", "csv", "tsv", "txt"],
+        help="Every sheet is scanned, not just the first.",
+    )
+
+    col_a, col_b = st.columns([1, 1])
+    require_label = col_a.toggle(
+        "Only cells labelled VIN / CH / Chassis",
+        value=False,
+        help="Off (default): a bare 17-character VIN in a dedicated column is "
+             "also found. On: only text introduced by a VIN/CH/Chassis label.",
+    )
+    include_unverified = col_b.toggle(
+        "Include VINs whose check digit fails",
+        value=True,
+        help="Vehicles built outside North America often fail the check digit "
+             "legitimately, so these are included by default and flagged.",
+    )
+
+    if upload is not None and st.button("Extract VINs", type="primary"):
+        with st.spinner(f"Scanning {upload.name}…"):
+            st.session_state["extraction"] = extract_from_workbook(
+                upload, require_label=require_label
+            )
+            st.session_state["extraction_name"] = upload.name
+
+    result = st.session_state.get("extraction")
+    if result is None:
+        st.info("Upload a spreadsheet to begin. Nothing is sent anywhere — "
+                "extraction runs entirely inside this app.")
+        return
+
+    for error in result.errors:
+        st.error(error)
+    if result.errors:
+        return
+
+    kept = [
+        o for o in result.occurrences
+        if include_unverified or o.verdict is Verdict.CONFIRMED
+    ]
+    unique = list(dict.fromkeys(o.vin for o in kept))
+
+    cols = st.columns(5)
+    cols[0].metric("Sheets", len(result.sheets_scanned))
+    cols[1].metric("Cells scanned", f"{result.cells_scanned:,}")
+    cols[2].metric("VIN occurrences", len(kept))
+    cols[3].metric("Unique VINs", len(unique))
+    cols[4].metric("Needs review", len(result.rejected))
+
+    if not kept:
+        st.warning(
+            f"No VINs found in **{st.session_state['extraction_name']}**. "
+            + ("Try switching off the label-only filter — a dedicated VIN column "
+               "has no `VIN:` prefix in the cell."
+               if require_label else
+               "Check that the file contains 17-character VINs.")
+        )
+    else:
+        unverified = sum(1 for o in kept if o.verdict is Verdict.UNVERIFIED)
+        if unverified:
+            st.warning(
+                f"{unverified} extracted VIN(s) did not pass the check digit. "
+                f"That is normal for imported vehicles, but verify them against "
+                f"the source document — they are flagged UNVERIFIED below."
+            )
+
+        st.dataframe(
+            pd.DataFrame([o.to_row() for o in kept]),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        st.markdown("**Unique VINs**")
+        st.code("\n".join(unique), language=None)
+
+        col1, col2 = st.columns(2)
+        col1.download_button(
+            "⬇️ Download extraction report (Excel)",
+            data=io.BytesIO(to_workbook_bytes(result)),
+            file_name=export_filename("xlsx", prefix="extracted-VINs"),
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            help="Three sheets: All VINs, Unique VINs, and Excluded candidates "
+                 "with the reason each was rejected.",
+        )
+
+        settings = get_settings()
+        capped = unique[: settings.max_vins_per_request]
+        col2.button(
+            f"➡️ Send {len(capped)} VIN(s) to the decoder",
+            on_click=_send_extracted_to_decoder,
+            args=(capped,),
+            use_container_width=True,
+            help="Loads them into the Decode tab, ready to decode.",
+        )
+        if len(unique) > len(capped):
+            st.caption(
+                f"Only the first {len(capped)} are sent; the decoder accepts "
+                f"{settings.max_vins_per_request} VINs per request."
+            )
+
+    # Nothing is dropped silently: everything rejected is shown with its reason.
+    if result.rejected:
+        with st.expander(f"Excluded candidates ({len(result.rejected)}) — and why"):
+            st.caption(
+                "These 17-character runs were found but not treated as VINs. "
+                "A letter O is almost always a mistyped zero, so these are worth "
+                "a glance rather than a silent skip."
+            )
+            st.dataframe(
+                pd.DataFrame([o.to_row() for o in result.rejected]),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+
 # --- Compare tab ------------------------------------------------------------
 
 def render_compare() -> None:
@@ -564,11 +708,14 @@ def main() -> None:
     init_state()
     refresh, verify = render_sidebar()
 
-    decode_tab, bulk_tab, compare_tab, about_tab = st.tabs(
-        ["🔍 Decode", "📋 Bulk & Export", "⚖️ Compare", "ℹ️ How to read this"]
+    decode_tab, extract_tab, bulk_tab, compare_tab, about_tab = st.tabs(
+        ["🔍 Decode", "📄 Extract from Excel", "📋 Bulk & Export",
+         "⚖️ Compare", "ℹ️ How to read this"]
     )
     with decode_tab:
         render_decode(refresh, verify)
+    with extract_tab:
+        render_extract()
     with bulk_tab:
         render_bulk()
     with compare_tab:

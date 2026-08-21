@@ -126,11 +126,51 @@ To warm the cache and see a coverage report from the command line:
 | | |
 |---|---|
 | **Decode** | One VIN or hundreds, pasted line by line. Format and check-digit validation, automatic uppercasing, duplicate detection. |
+| **Extract** | Pull VINs out of a messy spreadsheet: every cell of every sheet, labelled `VIN:` / `CH#` / `Chassis No.` or bare, split by spaces or hyphens. Feeds straight into the decoder. |
 | **Verify** | Cross-checks every field across sources and flags conflicts. |
 | **Bulk** | Sortable, filterable results table across year, make, model, fuel, engine, cylinders, horsepower, drivetrain. |
 | **Compare** | Two to six vehicles side by side, with differing rows highlighted and the leading value marked. |
 | **Export** | CSV and Excel. The Excel workbook includes separate sheets for field-level provenance and detected discrepancies. |
 | **Cache** | Decoded VINs are stored, so the same vehicle is never paid for twice. |
+
+---
+
+## Extracting VINs from a spreadsheet
+
+Real inventory files do not have a tidy VIN column. The **Extract from Excel**
+tab scans every cell of every sheet and handles what actually turns up:
+
+```
+VIN: 5UXKR0C56JL070851            CH# WA1ANAFY5J2213924
+Chassis No. WBA2J3C53JVA52449     WBX HT3 C38J 5K23394      (spaced)
+VIN: 5UXKR0C5-6JL0-70851          WBA5R7C59KAE82587         (bare, no label)
+```
+
+Extraction is deliberately two-stage: find candidates permissively, then
+classify each one **and say why**. That split is what stops the two opposite
+failure modes.
+
+**It does not invent VINs out of prose.** A regex that allows unlimited spacing
+between characters will happily assemble "THE RED CAR WAS PARKED" into a
+17-character "VIN". Separator runs are bounded, the match is anchored so an
+18-character token cannot be truncated into a plausible-looking VIN, and
+letter-rich runs with almost no digits are treated as text.
+
+**It does not silently drop real ones.** Three things are surfaced rather than
+skipped:
+
+| Case | Treated as |
+|---|---|
+| `1HGCM82633AO04352` | Rejected — contains `O`, almost certainly a mistyped zero |
+| Check digit fails | **Kept**, flagged `UNVERIFIED` — normal for imported vehicles |
+| `CH: 12345` | Rejected — a label with no 17-character VIN after it, likely truncated |
+
+The Excel export has three sheets: **All VINs**, **Unique VINs**, and
+**Excluded** with the reason each candidate was rejected. From the tab, extracted
+VINs feed straight into the decoder in one click.
+
+`data/sample_inventory.xlsx` is a deliberately messy two-sheet workbook for
+trying it out.
 
 ---
 
@@ -406,7 +446,7 @@ matter most:
 ./run.sh test                         # macOS / Linux
 ```
 
-**316 tests, no network access required.** NHTSA tests run against a captured
+**374 tests, no network access required.** NHTSA tests run against a captured
 vPIC payload, so the normalization contract is pinned without depending on a live
 service.
 
@@ -415,6 +455,7 @@ service.
 | `test_vin_validation.py` | Check digit (including which corruptions the standard provably cannot catch), charset, length, model-year cycle disambiguation, WMI/country tables, list parsing and deduplication |
 | `test_normalize.py` | Placeholder rejection, numeric parsing, canonicalization, conflict-vs-formatting discrimination |
 | `test_merge.py` | Selection order, discrepancy reporting, confidence roll-up |
+| `test_vin_extraction.py` | Label forms, separators, prose rejection, typo surfacing, multi-sheet workbooks |
 | `test_providers.py` | Payload mapping, catalog matching, failure isolation, credential safety |
 | `test_api.py` | Every endpoint, error paths, caching, cost policy, rate limiting, export integrity |
 
@@ -449,6 +490,7 @@ app/
 │   └── data/spec_catalog.json  Curated specifications
 ├── services/
 │   ├── decode_service.py       Orchestration, caching, cost policy
+│   ├── vin_extraction.py       Pull VINs out of spreadsheet cells and free text
 │   ├── merge.py                Field resolution and discrepancy detection
 │   ├── normalize.py            Junk rejection and canonicalization
 │   ├── compare_service.py      Comparison matrix

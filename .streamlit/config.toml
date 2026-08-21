@@ -8,8 +8,10 @@ secondaryBackgroundColor = "#101728"
 textColor = "#e7ecf7"
 
 [server]
-# The decoder never accepts file uploads; keep the request ceiling small.
-maxUploadSize = 5
+# The "Extract from Excel" tab accepts spreadsheet uploads. Inventory workbooks
+# with images or many sheets run well past a few megabytes, so this is sized for
+# a realistic file while still bounding what a single request can push.
+maxUploadSize = 50
 enableXsrfProtection = true
 
 [browser]
