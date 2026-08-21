@@ -1,0 +1,20 @@
+# Streamlit configuration. Applies both locally and on Streamlit Community Cloud.
+
+[theme]
+base = "dark"
+primaryColor = "#4c8dff"
+backgroundColor = "#080b14"
+secondaryBackgroundColor = "#101728"
+textColor = "#e7ecf7"
+
+[server]
+# The decoder never accepts file uploads; keep the request ceiling small.
+maxUploadSize = 5
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+# Show a friendly message instead of a stack trace if something slips through.
+showErrorDetails = false

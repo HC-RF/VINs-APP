@@ -1,0 +1,371 @@
+{
+  "version": "2026.08.1",
+  "description": "Curated vehicle specification catalog shipped with the application. Supplies facts the VIN itself cannot encode (horsepower, torque, transmission detail, EPA fuel economy) and acts as an independent source for cross-verifying provider data. Figures are manufacturer-published or EPA-rated for the trim/engine combination described by each entry.",
+  "notes": "This is a seed dataset, not an exhaustive database. An unmatched vehicle returns no data rather than an approximation. Extend it by adding entries, or register a commercial provider for full coverage.",
+  "match_rules": "An entry matches when make and model agree and the model year falls in [year_from, year_to]. engine_l and trim_match narrow the entry further; the most specific match wins.",
+  "entries": [
+    {
+      "make": "BMW", "model": "X5", "year_from": 2014, "year_to": 2018,
+      "engine_l": 3.0, "trim_match": ["xdrive35i", "sdrive35i", "35i"],
+      "specs": {
+        "horsepower": 300, "torque_lb_ft": 300, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 18, "mpg_highway": 24,
+        "mpg_combined": 20, "curb_weight_lb": 4831, "zero_to_sixty_s": 6.2,
+        "towing_capacity_lb": 6000
+      }
+    },
+    {
+      "make": "BMW", "model": "X5", "year_from": 2014, "year_to": 2018,
+      "engine_l": 4.4, "trim_match": ["xdrive50i", "50i"],
+      "specs": {
+        "horsepower": 445, "torque_lb_ft": 480, "engine_type": "Turbocharged",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 15, "mpg_highway": 21,
+        "mpg_combined": 17, "zero_to_sixty_s": 4.7
+      }
+    },
+    {
+      "make": "BMW", "model": "X1", "year_from": 2016, "year_to": 2019,
+      "engine_l": 2.0, "trim_match": ["xdrive28i", "sdrive28i", "28i"],
+      "specs": {
+        "horsepower": 228, "torque_lb_ft": 258, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 22, "mpg_highway": 31,
+        "mpg_combined": 25, "curb_weight_lb": 3660, "zero_to_sixty_s": 6.3
+      }
+    },
+    {
+      "make": "BMW", "model": "230i", "year_from": 2017, "year_to": 2021,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 248, "torque_lb_ft": 258, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 22, "mpg_highway": 32,
+        "mpg_combined": 25, "curb_weight_lb": 3535, "zero_to_sixty_s": 5.6
+      }
+    },
+    {
+      "make": "BMW", "model": "330i", "year_from": 2019, "year_to": 2022,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 255, "torque_lb_ft": 294, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 25, "mpg_highway": 34,
+        "mpg_combined": 28, "curb_weight_lb": 3671, "zero_to_sixty_s": 5.6
+      }
+    },
+    {
+      "make": "BMW", "model": "430i", "year_from": 2017, "year_to": 2020,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 248, "torque_lb_ft": 258, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 22, "mpg_highway": 32,
+        "mpg_combined": 25, "curb_weight_lb": 3730, "zero_to_sixty_s": 5.7
+      }
+    },
+    {
+      "make": "BMW", "model": "530i", "year_from": 2017, "year_to": 2023,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 248, "torque_lb_ft": 258, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 24, "mpg_highway": 33,
+        "mpg_combined": 27, "zero_to_sixty_s": 6.0
+      }
+    },
+    {
+      "make": "BMW", "model": "X3", "year_from": 2018, "year_to": 2024,
+      "engine_l": 2.0, "trim_match": ["xdrive30i", "sdrive30i", "30i"],
+      "specs": {
+        "horsepower": 248, "torque_lb_ft": 258, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 23, "mpg_highway": 29,
+        "mpg_combined": 25, "zero_to_sixty_s": 6.0
+      }
+    },
+    {
+      "make": "Audi", "model": "Q5", "year_from": 2018, "year_to": 2020,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 252, "torque_lb_ft": 273, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Dual-Clutch",
+        "transmission_speeds": 7, "mpg_city": 23, "mpg_highway": 27,
+        "mpg_combined": 25, "curb_weight_lb": 4045, "zero_to_sixty_s": 5.9,
+        "towing_capacity_lb": 4400
+      }
+    },
+    {
+      "make": "Audi", "model": "A4", "year_from": 2017, "year_to": 2019,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 252, "torque_lb_ft": 273, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Dual-Clutch",
+        "transmission_speeds": 7, "mpg_city": 24, "mpg_highway": 31,
+        "mpg_combined": 27, "zero_to_sixty_s": 5.7
+      }
+    },
+    {
+      "make": "Audi", "model": "Q7", "year_from": 2017, "year_to": 2019,
+      "engine_l": 3.0,
+      "specs": {
+        "horsepower": 333, "torque_lb_ft": 325, "engine_type": "Supercharged",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 19, "mpg_highway": 25,
+        "mpg_combined": 21, "zero_to_sixty_s": 5.7
+      }
+    },
+    {
+      "make": "Honda", "model": "Accord", "year_from": 2018, "year_to": 2022,
+      "engine_l": 1.5,
+      "specs": {
+        "horsepower": 192, "torque_lb_ft": 192, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "CVT",
+        "mpg_city": 30, "mpg_highway": 38, "mpg_combined": 33
+      }
+    },
+    {
+      "make": "Honda", "model": "Accord", "year_from": 2003, "year_to": 2007,
+      "engine_l": 2.4,
+      "specs": {
+        "horsepower": 160, "torque_lb_ft": 161, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 5, "mpg_city": 21, "mpg_highway": 30,
+        "mpg_combined": 24
+      }
+    },
+    {
+      "make": "Honda", "model": "Civic", "year_from": 2016, "year_to": 2021,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 158, "torque_lb_ft": 138, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Inline", "transmission": "CVT",
+        "mpg_city": 30, "mpg_highway": 38, "mpg_combined": 33
+      }
+    },
+    {
+      "make": "Honda", "model": "CR-V", "year_from": 2017, "year_to": 2022,
+      "engine_l": 1.5,
+      "specs": {
+        "horsepower": 190, "torque_lb_ft": 179, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "CVT",
+        "mpg_city": 28, "mpg_highway": 34, "mpg_combined": 30
+      }
+    },
+    {
+      "make": "Toyota", "model": "Camry", "year_from": 2018, "year_to": 2024,
+      "engine_l": 2.5,
+      "specs": {
+        "horsepower": 203, "torque_lb_ft": 184, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 28, "mpg_highway": 39,
+        "mpg_combined": 32
+      }
+    },
+    {
+      "make": "Toyota", "model": "RAV4", "year_from": 2019, "year_to": 2024,
+      "engine_l": 2.5,
+      "specs": {
+        "horsepower": 203, "torque_lb_ft": 184, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 27, "mpg_highway": 35,
+        "mpg_combined": 30
+      }
+    },
+    {
+      "make": "Toyota", "model": "Corolla", "year_from": 2020, "year_to": 2024,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 169, "torque_lb_ft": 151, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Inline", "transmission": "CVT",
+        "mpg_city": 31, "mpg_highway": 40, "mpg_combined": 35
+      }
+    },
+    {
+      "make": "Ford", "model": "F-150", "year_from": 2018, "year_to": 2020,
+      "engine_l": 3.5, "trim_match": ["ecoboost", "xlt", "lariat", "platinum"],
+      "specs": {
+        "horsepower": 375, "torque_lb_ft": 470, "engine_type": "Turbocharged",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 10, "mpg_city": 18, "mpg_highway": 24,
+        "mpg_combined": 20, "towing_capacity_lb": 13200
+      }
+    },
+    {
+      "make": "Ford", "model": "F-150", "year_from": 2018, "year_to": 2020,
+      "engine_l": 5.0,
+      "specs": {
+        "horsepower": 395, "torque_lb_ft": 400, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 10, "mpg_city": 17, "mpg_highway": 23,
+        "mpg_combined": 19, "towing_capacity_lb": 11600
+      }
+    },
+    {
+      "make": "Ford", "model": "Explorer", "year_from": 2020, "year_to": 2024,
+      "engine_l": 2.3,
+      "specs": {
+        "horsepower": 300, "torque_lb_ft": 310, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 10, "mpg_city": 21, "mpg_highway": 28,
+        "mpg_combined": 24
+      }
+    },
+    {
+      "make": "Chevrolet", "model": "Silverado 1500", "year_from": 2019, "year_to": 2023,
+      "engine_l": 5.3,
+      "specs": {
+        "horsepower": 355, "torque_lb_ft": 383, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 16, "mpg_highway": 22,
+        "mpg_combined": 18, "towing_capacity_lb": 11600
+      }
+    },
+    {
+      "make": "Chevrolet", "model": "Equinox", "year_from": 2018, "year_to": 2024,
+      "engine_l": 1.5,
+      "specs": {
+        "horsepower": 170, "torque_lb_ft": 203, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 6, "mpg_city": 26, "mpg_highway": 31,
+        "mpg_combined": 28
+      }
+    },
+    {
+      "make": "Tesla", "model": "Model 3", "year_from": 2017, "year_to": 2023,
+      "trim_match": ["long range"],
+      "specs": {
+        "horsepower": 346, "engine_type": "Electric Motor",
+        "transmission": "Automatic", "transmission_speeds": 1,
+        "mpg_combined": 131, "zero_to_sixty_s": 4.2
+      }
+    },
+    {
+      "make": "Tesla", "model": "Model Y", "year_from": 2020, "year_to": 2024,
+      "trim_match": ["long range"],
+      "specs": {
+        "horsepower": 384, "engine_type": "Electric Motor",
+        "transmission": "Automatic", "transmission_speeds": 1,
+        "mpg_combined": 122, "zero_to_sixty_s": 4.8
+      }
+    },
+    {
+      "make": "Jeep", "model": "Grand Cherokee", "year_from": 2014, "year_to": 2021,
+      "engine_l": 3.6,
+      "specs": {
+        "horsepower": 295, "torque_lb_ft": 260, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 19, "mpg_highway": 26,
+        "mpg_combined": 22, "towing_capacity_lb": 6200
+      }
+    },
+    {
+      "make": "Jeep", "model": "Wrangler", "year_from": 2018, "year_to": 2023,
+      "engine_l": 3.6,
+      "specs": {
+        "horsepower": 285, "torque_lb_ft": 260, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 17, "mpg_highway": 25,
+        "mpg_combined": 20
+      }
+    },
+    {
+      "make": "Nissan", "model": "Rogue", "year_from": 2021, "year_to": 2024,
+      "engine_l": 1.5,
+      "specs": {
+        "horsepower": 201, "torque_lb_ft": 225, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "CVT",
+        "mpg_city": 30, "mpg_highway": 37, "mpg_combined": 33
+      }
+    },
+    {
+      "make": "Subaru", "model": "Outback", "year_from": 2020, "year_to": 2024,
+      "engine_l": 2.5,
+      "specs": {
+        "horsepower": 182, "torque_lb_ft": 176, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Horizontally Opposed", "transmission": "CVT",
+        "mpg_city": 26, "mpg_highway": 33, "mpg_combined": 29
+      }
+    },
+    {
+      "make": "Subaru", "model": "Forester", "year_from": 2019, "year_to": 2024,
+      "engine_l": 2.5,
+      "specs": {
+        "horsepower": 182, "torque_lb_ft": 176, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Horizontally Opposed", "transmission": "CVT",
+        "mpg_city": 26, "mpg_highway": 33, "mpg_combined": 29
+      }
+    },
+    {
+      "make": "Hyundai", "model": "Tucson", "year_from": 2022, "year_to": 2024,
+      "engine_l": 2.5,
+      "specs": {
+        "horsepower": 187, "torque_lb_ft": 178, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 26, "mpg_highway": 33,
+        "mpg_combined": 29
+      }
+    },
+    {
+      "make": "Kia", "model": "Telluride", "year_from": 2020, "year_to": 2024,
+      "engine_l": 3.8,
+      "specs": {
+        "horsepower": 291, "torque_lb_ft": 262, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 20, "mpg_highway": 26,
+        "mpg_combined": 23, "towing_capacity_lb": 5500
+      }
+    },
+    {
+      "make": "Mazda", "model": "CX-5", "year_from": 2017, "year_to": 2024,
+      "engine_l": 2.5, "trim_match": ["touring", "sport", "grand touring"],
+      "specs": {
+        "horsepower": 187, "torque_lb_ft": 186, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 6, "mpg_city": 24, "mpg_highway": 30,
+        "mpg_combined": 26
+      }
+    },
+    {
+      "make": "Volkswagen", "model": "Tiguan", "year_from": 2018, "year_to": 2023,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 184, "torque_lb_ft": 221, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 22, "mpg_highway": 29,
+        "mpg_combined": 25
+      }
+    },
+    {
+      "make": "Mercedes-Benz", "model": "C300", "year_from": 2015, "year_to": 2021,
+      "engine_l": 2.0,
+      "specs": {
+        "horsepower": 255, "torque_lb_ft": 273, "engine_type": "Turbocharged",
+        "engine_configuration": "Inline", "transmission": "Automatic",
+        "transmission_speeds": 9, "mpg_city": 23, "mpg_highway": 34,
+        "mpg_combined": 27
+      }
+    },
+    {
+      "make": "Lexus", "model": "RX 350", "year_from": 2016, "year_to": 2022,
+      "engine_l": 3.5,
+      "specs": {
+        "horsepower": 295, "torque_lb_ft": 268, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 20, "mpg_highway": 27,
+        "mpg_combined": 23
+      }
+    },
+    {
+      "make": "RAM", "model": "1500", "year_from": 2019, "year_to": 2024,
+      "engine_l": 5.7,
+      "specs": {
+        "horsepower": 395, "torque_lb_ft": 410, "engine_type": "Naturally Aspirated",
+        "engine_configuration": "V-Shaped", "transmission": "Automatic",
+        "transmission_speeds": 8, "mpg_city": 17, "mpg_highway": 23,
+        "mpg_combined": 19, "towing_capacity_lb": 11610
+      }
+    }
+  ]
+}

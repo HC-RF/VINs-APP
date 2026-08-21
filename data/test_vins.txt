@@ -1,0 +1,19 @@
+# Test VINs. Lines starting with # are ignored by the loader script.
+# All six below are real, check-digit-valid 2018-2019 vehicles.
+WA1ANAFY5J2213924
+WBXHT3C38J5K23394
+5UXKR0C56JL070851
+WBA2J3C53JVA52449
+WBA5R7C59KAE82587
+WBA4J1C58JBG77203
+
+# Additional coverage across manufacturers and fuel types:
+1HGCM82633A004352
+JTDKN3DU0A0012345
+1FTFW1ET5DFC10312
+KM8J3CA46JU123456
+
+# Deliberately broken input, for exercising the error paths:
+SHORTVIN
+5UXKR0C56JL07085I
+5UXKR0C56JL0708511

@@ -1,0 +1,15 @@
+# Normalize to LF in the repository. Without this, files committed from Windows
+# carry CRLF, and `run.sh` then fails on Linux with "bad interpreter: no such
+# file or directory" because the shebang line ends in \r.
+* text=auto eol=lf
+
+# Shell scripts must be LF even when checked out on Windows.
+*.sh text eol=lf
+# PowerShell is happiest with CRLF on Windows.
+*.ps1 text eol=crlf
+
+# Binary assets: never touch.
+*.png binary
+*.jpg binary
+*.ico binary
+*.xlsx binary

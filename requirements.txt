@@ -1,0 +1,42 @@
+# =============================================================================
+# One dependency set serving both frontends:
+#   streamlit run streamlit_app.py     -> Streamlit Community Cloud
+#   uvicorn app.main:app               -> FastAPI + the static SPA
+#
+# Streamlit Cloud installs from this file at the repository root.
+#
+# Version note: Streamlit 1.62 requires starlette 1.x, which FastAPI only
+# supports from 0.116 onward. Pinning FastAPI below that produces a
+# `Router.__init__() got an unexpected keyword argument 'on_startup'` error at
+# import time. The combination pinned here is verified: 316 tests pass and both
+# frontends run against it.
+# =============================================================================
+
+# --- Core decoding stack (needed by both frontends) -------------------------
+pydantic==2.10.4
+pydantic-settings==2.7.1
+httpx==0.28.1
+SQLAlchemy==2.0.36
+openpyxl==3.1.5
+
+# --- Streamlit frontend -----------------------------------------------------
+streamlit==1.62.0
+# Range rather than a pin: Streamlit resolves pandas itself and the version
+# depends on the Python runtime. Verified against 3.0.5.
+pandas>=2.2,<4
+
+# --- FastAPI frontend -------------------------------------------------------
+# Not used by Streamlit Cloud, but harmless there and required for the
+# `uvicorn app.main:app` deployment path and the API test suite.
+fastapi==0.141.1
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# --- PostgreSQL driver ------------------------------------------------------
+# Optional locally (the app falls back to SQLite when DATABASE_URL is unset).
+# Required for durable caching in any real deployment.
+psycopg[binary]==3.2.3
+
+# --- Test tooling -----------------------------------------------------------
+pytest==8.3.4
+pytest-asyncio==0.25.0
