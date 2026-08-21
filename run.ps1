@@ -34,7 +34,7 @@ if (-not (Test-Path $python)) {
 
     Write-Host "Installing dependencies..." -ForegroundColor Cyan
     & $python -m pip install --quiet --upgrade pip
-    & $python -m pip install --quiet -r requirements.txt
+    & $python -m pip install --quiet -r requirements-dev.txt
 }
 
 if (-not (Test-Path ".env")) {

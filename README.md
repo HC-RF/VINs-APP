@@ -95,7 +95,7 @@ Then open **http://localhost:8501**. Both read and write the same cache.
 ```bash
 python -m venv .venv
 .venv/Scripts/activate          # Windows:  .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 cp .env.example .env
 python -m uvicorn app.main:app --reload
 ```
@@ -522,13 +522,37 @@ For multiple workers or replicas, replace the in-process
 `SlidingWindowLimiter` in `app/core/rate_limit.py` with a Redis-backed counter —
 the middleware does not care which it talks to.
 
-### A dependency constraint worth knowing
+### Dependencies are split by deployment target
 
-Streamlit 1.62 requires `starlette` 1.x; FastAPI only supports that from 0.116
-onward. Pinning FastAPI below it fails at import with
-`Router.__init__() got an unexpected keyword argument 'on_startup'`. The
-combination in `requirements.txt` is verified against both frontends and the
-full test suite — change those pins together, not individually.
+| File | Installs | Use for |
+|---|---|---|
+| `requirements.txt` | Streamlit + the decoding stack only | **Streamlit Cloud** (it installs from this file automatically) |
+| `requirements-api.txt` | the above + FastAPI, uvicorn, psycopg | `uvicorn app.main:app` |
+| `requirements-dev.txt` | the above + pytest | local development, running the tests |
+
+```bash
+pip install -r requirements-dev.txt      # everything, for local work
+```
+
+Two reasons this is split rather than one file:
+
+**Streamlit Cloud should not install what it never imports.** `streamlit_app.py`
+reaches only `streamlit`, `pandas`, `pydantic`, `pydantic-settings`, `httpx`,
+`sqlalchemy` and `openpyxl`. Shipping FastAPI, uvicorn and pytest to the cloud
+adds failure modes for packages the app does not use — a build failure in any
+one of them takes down the whole deploy.
+
+**`requirements.txt` uses ranges, not exact pins.** Streamlit Cloud picks the
+Python version, and an exact pin with no wheel for that interpreter fails the
+install outright. `psycopg-binary` in particular publishes **no source
+distribution**, so on a Python version it has not built for yet, pip cannot fall
+back to compiling — it just fails. That is why PostgreSQL support is commented
+out by default; uncomment it in `requirements.txt` when you set `DATABASE_URL`.
+
+One constraint to preserve if you edit `requirements-api.txt`: Streamlit 1.62
+requires `starlette` 1.x, which FastAPI only supports from **0.116** onward.
+Pinning FastAPI below that fails at import with
+`Router.__init__() got an unexpected keyword argument 'on_startup'`.
 
 ---
 

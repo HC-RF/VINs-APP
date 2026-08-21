@@ -13,7 +13,7 @@ if [ ! -x "$PYTHON" ]; then
   python3 -m venv .venv
   echo "Installing dependencies..."
   "$PYTHON" -m pip install --quiet --upgrade pip
-  "$PYTHON" -m pip install --quiet -r requirements.txt
+  "$PYTHON" -m pip install --quiet -r requirements-dev.txt
 fi
 
 if [ ! -f .env ]; then

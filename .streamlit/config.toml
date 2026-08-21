@@ -16,5 +16,9 @@ enableXsrfProtection = true
 gatherUsageStats = false
 
 [client]
-# Show a friendly message instead of a stack trace if something slips through.
-showErrorDetails = false
+# Keep internals out of a publicly reachable browser; full tracebacks still go
+# to the server log (Manage app -> Logs on Streamlit Cloud).
+# Modern Streamlit expects a string here - "full" | "stacktrace" | "type" |
+# "none" - not the legacy boolean.
+# Set to "full" while debugging a deployment.
+showErrorDetails = "none"

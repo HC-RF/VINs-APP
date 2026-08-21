@@ -1,0 +1,6 @@
+# Local development: both frontends plus the test suite.
+#   pip install -r requirements-dev.txt
+-r requirements-api.txt
+
+pytest>=8.0,<9
+pytest-asyncio>=0.24,<1
