@@ -179,7 +179,7 @@ def render_sidebar() -> tuple[bool, bool]:
     for provider in registry.all:
         info = provider.info()
         icon = "🟢" if info.available else "⚪"
-        cost = "free" if info.cost_per_call <= 0 else f"${info.cost_per_call:.3f}/call"
+        cost = "" if info.cost_per_call <= 0 else ""
         st.sidebar.markdown(f"{icon} **{info.label}** · {cost}")
         if info.unavailable_reason:
             st.sidebar.caption(info.unavailable_reason)
