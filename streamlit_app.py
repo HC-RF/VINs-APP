@@ -191,7 +191,7 @@ def render_sidebar() -> tuple[bool, bool]:
         col1, col2 = st.sidebar.columns(2)
         col1.metric("Lookups", usage["total_lookups"])
         col2.metric("Cache hits", f"{round(usage['cache_hit_rate'] * 100)}%")
-        st.sidebar.metric("API spend", f"${usage['total_cost']:.2f}")
+     #   st.sidebar.metric("API spend", f"${usage['total_cost']:.2f}")
     except Exception:  # noqa: BLE001 - a stats panel must never break the app
         pass
 
