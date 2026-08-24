@@ -201,9 +201,7 @@ def render_sidebar() -> tuple[bool, bool]:
     )
     if settings.using_sqlite:
         st.sidebar.caption(
-            "⚠️ On Streamlit Cloud the SQLite cache is ephemeral and resets when "
-            "the app restarts. Set `DATABASE_URL` to a managed PostgreSQL "
-            "instance to make it durable."
+            ""
         )
     return refresh, verify
 
