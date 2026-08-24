@@ -51,7 +51,9 @@ from app.services.decode_service import DecodeService  # noqa: E402
 from app.services.export_service import export_filename, to_csv, to_xlsx  # noqa: E402
 from app.services.vin_extraction import (  # noqa: E402
     Verdict,
+    extract_from_text,
     extract_from_workbook,
+    find_near_misses,
     to_workbook_bytes,
 )
 from app.vin.validate import parse_vin_list  # noqa: E402
@@ -572,7 +574,7 @@ def render_extract() -> None:
     cols[1].metric("Cells scanned", f"{result.cells_scanned:,}")
     cols[2].metric("VIN occurrences", len(kept))
     cols[3].metric("Unique VINs", len(unique))
-    cols[4].metric("Needs review", len(result.rejected))
+    cols[4].metric("Needs review", len(result.rejected) + len(result.near_misses))
 
     if not kept:
         st.warning(
@@ -628,7 +630,7 @@ def render_extract() -> None:
 
     # Nothing is dropped silently: everything rejected is shown with its reason.
     if result.rejected:
-        with st.expander(f"Excluded candidates ({len(result.rejected)}) — and why"):
+        with st.expander(f"⚠️ Excluded candidates ({len(result.rejected)}) — and why"):
             st.caption(
                 "These 17-character runs were found but not treated as VINs. "
                 "A letter O is almost always a mistyped zero, so these are worth "
@@ -639,6 +641,67 @@ def render_extract() -> None:
                 use_container_width=True,
                 hide_index=True,
             )
+
+    # The audit trail: anything of roughly VIN length that was not accepted.
+    # This is what makes "are we missing any?" answerable instead of a worry.
+    if result.near_misses:
+        with st.expander(
+            f"🔍 Near misses ({len(result.near_misses)}) — runs of nearly VIN length"
+        ):
+            st.caption(
+                "Every 14–20 character run that was **not** accepted, with its "
+                "actual length. A 16- or 18-character entry in a VIN column is "
+                "usually a real vehicle with a dropped or doubled character; "
+                "invoice and order numbers show up here too and can be ignored. "
+                "Nothing of VIN-like length is left unaccounted for."
+            )
+            st.dataframe(
+                pd.DataFrame([n.to_row() for n in result.near_misses]),
+                use_container_width=True,
+                hide_index=True,
+            )
+    elif kept:
+        st.success(
+            "No near misses — every run of VIN-like length in the file was "
+            "accounted for."
+        )
+
+    # A single cell that should have matched but did not is far easier to debug
+    # here than by re-uploading a whole workbook.
+    with st.expander("🧪 Test a single cell"):
+        st.caption(
+            "Paste the exact contents of a cell that should contain a VIN and "
+            "see how it is read."
+        )
+        probe = st.text_area(
+            "Cell contents", key="extract_probe", height=90,
+            placeholder="VIN: 5UXKR0C56JL070851",
+            label_visibility="collapsed",
+        )
+        if probe.strip():
+            candidates = [c for c in extract_from_text(probe) if c.worth_reporting]
+            if candidates:
+                st.dataframe(
+                    pd.DataFrame([{
+                        "VIN": c.vin or "(none)",
+                        "Status": c.verdict.value,
+                        "Label": c.label or "(unlabelled)",
+                        "Check Digit": (
+                            "OK" if c.check_digit_valid
+                            else ("FAILED" if c.check_digit_valid is False else "n/a")
+                        ),
+                        "Note": c.reason or "",
+                    } for c in candidates]),
+                    use_container_width=True, hide_index=True,
+                )
+            near = find_near_misses(probe, set())
+            if near:
+                st.warning(
+                    "Nearly VIN-length but not 17 characters: "
+                    + ", ".join(f"`{t}` ({n} chars)" for t, n in near)
+                )
+            if not candidates and not near:
+                st.info("No VIN-like run found in that text.")
 
 
 # --- Compare tab ------------------------------------------------------------

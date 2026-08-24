@@ -156,6 +156,13 @@ between characters will happily assemble "THE RED CAR WAS PARKED" into a
 18-character token cannot be truncated into a plausible-looking VIN, and
 letter-rich runs with almost no digits are treated as text.
 
+**Every cell is read raw.** Nothing is treated as a header row, so a VIN on
+row 1 of a headerless export is found like any other. Positions come back as
+real Excel references (`Stock!B7`). Cell values are normalised first, because
+each of these was observed hiding a real VIN: zero-width characters from a web
+paste, en dashes from Excel autocorrect, non-breaking spaces, and labels pressed
+straight against the number (`VIN5UXKR0C56JL070851`).
+
 **It does not silently drop real ones.** Three things are surfaced rather than
 skipped:
 
@@ -165,9 +172,19 @@ skipped:
 | Check digit fails | **Kept**, flagged `UNVERIFIED` — normal for imported vehicles |
 | `CH: 12345` | Rejected — a label with no 17-character VIN after it, likely truncated |
 
-The Excel export has three sheets: **All VINs**, **Unique VINs**, and
-**Excluded** with the reason each candidate was rejected. From the tab, extracted
-VINs feed straight into the decoder in one click.
+**And it shows you what it did not take.** The **Near misses** panel lists every
+14-20 character run that was *not* accepted, with its actual length. A 16- or
+18-character entry in a VIN column is usually a real vehicle with a dropped or
+doubled character; invoice numbers show up there too and can be ignored. This is
+what turns "some VINs are missing" from a worry into a list you can check. When
+the panel is empty the app says so explicitly.
+
+A **Test a single cell** box takes the exact contents of any cell and shows how
+it is read - faster than re-uploading a workbook to chase one stubborn row.
+
+The Excel export has four sheets: **All VINs**, **Unique VINs**, **Excluded**
+with the reason each candidate was rejected, and **Near Misses**. From the tab,
+extracted VINs feed straight into the decoder in one click.
 
 `data/sample_inventory.xlsx` is a deliberately messy two-sheet workbook for
 trying it out.
@@ -446,7 +463,7 @@ matter most:
 ./run.sh test                         # macOS / Linux
 ```
 
-**374 tests, no network access required.** NHTSA tests run against a captured
+**396 tests, no network access required.** NHTSA tests run against a captured
 vPIC payload, so the normalization contract is pinned without depending on a live
 service.
 
@@ -455,7 +472,7 @@ service.
 | `test_vin_validation.py` | Check digit (including which corruptions the standard provably cannot catch), charset, length, model-year cycle disambiguation, WMI/country tables, list parsing and deduplication |
 | `test_normalize.py` | Placeholder rejection, numeric parsing, canonicalization, conflict-vs-formatting discrimination |
 | `test_merge.py` | Selection order, discrepancy reporting, confidence roll-up |
-| `test_vin_extraction.py` | Label forms, separators, prose rejection, typo surfacing, multi-sheet workbooks |
+| `test_vin_extraction.py` | Label forms, separators, prose rejection, typo surfacing, raw-cell scanning, text normalisation, near-miss reporting |
 | `test_providers.py` | Payload mapping, catalog matching, failure isolation, credential safety |
 | `test_api.py` | Every endpoint, error paths, caching, cost policy, rate limiting, export integrity |
 

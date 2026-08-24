@@ -57,6 +57,41 @@ FORBIDDEN_LETTERS = "IOQ"
 #: and must not be treated as a label with a missing value.
 _EXPLICIT_LABEL = re.compile(r"[#:.\-]|\bN[O°]\b|\bNUM", re.IGNORECASE)
 
+#: Invisible characters that survive a copy-paste out of a web page or PDF and
+#: split a VIN into two unmatched halves.
+_ZERO_WIDTH = re.compile(r"[​-‏⁠﻿]")
+
+#: Unicode dashes. Excel autocorrect turns a typed hyphen into an en dash, which
+#: `[\s\-]` does not match, so "5UXKR0C5–6JL070851" would find nothing.
+_UNICODE_DASHES = re.compile(r"[‐-―−˗֊᠆]")
+
+#: Non-breaking and exotic spaces.
+_ODD_SPACES = re.compile(r"[   -   　]")
+
+#: A label pressed straight against the VIN: "VIN5UXKR0C56JL070851". `\bVIN\b`
+#: cannot match there - the boundary fails against the following digit - so the
+#: label is invisible and the 20-character run yields nothing.
+_GLUED_LABEL = re.compile(
+    r"(?<![A-Z0-9])(VIN|CHASSIS|CHASIS|CH)(?=[A-Z0-9]{17}(?![A-Z0-9]))"
+)
+
+
+def normalise_text(raw: object) -> str:
+    """Fold a raw cell into the form the matchers expect.
+
+    Every transform here exists because it was observed to hide a real VIN:
+    invisible characters split runs, Excel autocorrects hyphens into en dashes,
+    and labels get pressed against the number with no separator.
+    """
+    if raw is None:
+        return ""
+    text = str(raw)
+    text = _ZERO_WIDTH.sub("", text)
+    text = _UNICODE_DASHES.sub("-", text)
+    text = _ODD_SPACES.sub(" ", text)
+    text = text.upper()
+    return _GLUED_LABEL.sub(r"\1 ", text)
+
 
 def _is_explicit_label(matched: str) -> bool:
     return bool(_EXPLICIT_LABEL.search(matched))
@@ -122,8 +157,14 @@ class Occurrence:
     reason: str | None
     check_digit_valid: bool | None
 
+    @property
+    def cell_ref(self) -> str:
+        """Excel-style reference, e.g. ``Stock!B7``."""
+        return f"{self.sheet}!{self.column}{self.row}"
+
     def to_row(self) -> dict[str, Any]:
         return {
+            "Cell": self.cell_ref,
             "Sheet": self.sheet,
             "Excel Row": self.row,
             "Column": self.column,
@@ -139,10 +180,48 @@ class Occurrence:
         }
 
 
+#: Alphanumeric runs close to VIN length. A run of 14-20 characters that was not
+#: accepted is the single most useful diagnostic there is: it is almost always
+#: either a truncated VIN, a VIN with a stray character, or a reference number
+#: that merely looks like one. Surfacing them turns "some VINs are missing" from
+#: a hunch into a list.
+NEAR_MISS_PATTERN = re.compile(
+    r"(?<![A-Z0-9])[A-Z0-9](?:[\s\-]{0,2}[A-Z0-9]){12,20}(?![A-Z0-9])"
+)
+NEAR_MISS_MIN = 14
+NEAR_MISS_MAX = 20
+
+
+@dataclass(slots=True)
+class NearMiss:
+    """A VIN-length-ish run that was not accepted, and how long it actually is."""
+
+    token: str
+    length: int
+    sheet: str
+    row: int
+    column: str
+    original_text: str
+
+    def to_row(self) -> dict[str, Any]:
+        return {
+            "Cell": f"{self.sheet}!{self.column}{self.row}",
+            "Sheet": self.sheet,
+            "Token": self.token,
+            "Length": self.length,
+            "Why not a VIN": (
+                f"{self.length} characters, a VIN has 17 "
+                f"({'too short' if self.length < 17 else 'too long'})"
+            ),
+            "Original Text": self.original_text,
+        }
+
+
 @dataclass
 class ExtractionResult:
     occurrences: list[Occurrence] = field(default_factory=list)
     rejected: list[Occurrence] = field(default_factory=list)
+    near_misses: list[NearMiss] = field(default_factory=list)
     sheets_scanned: list[str] = field(default_factory=list)
     cells_scanned: int = 0
     errors: list[str] = field(default_factory=list)
@@ -252,7 +331,7 @@ def extract_from_text(text: Any, *, require_label: bool = False) -> list[Candida
     raw_text = str(text)
     if not raw_text.strip():
         return []
-    upper = raw_text.upper()
+    upper = normalise_text(raw_text)
 
     found: list[Candidate] = []
     seen: set[str] = set()
@@ -326,6 +405,21 @@ def extract_from_dataframe(
     """
     result = ExtractionResult(sheets_scanned=[sheet_name])
 
+    # Column names are data too when the file had no header row.
+    for col_index, column in enumerate(frame.columns, start=1):
+        result.cells_scanned += 1
+        for candidate in extract_from_text(column, require_label=require_label):
+            occurrence = Occurrence(
+                vin=candidate.vin, sheet=sheet_name, row=1,
+                column=_column_letter(col_index), original_text=str(column),
+                label=candidate.label, verdict=candidate.verdict,
+                reason=candidate.reason, check_digit_valid=candidate.check_digit_valid,
+            )
+            if candidate.usable:
+                result.occurrences.append(occurrence)
+            elif candidate.worth_reporting:
+                result.rejected.append(occurrence)
+
     for row_index, row in frame.iterrows():
         for column in frame.columns:
             value = row[column]
@@ -350,50 +444,172 @@ def extract_from_dataframe(
     return result
 
 
+def _column_letter(index: int) -> str:
+    """1 -> A, 27 -> AA. Excel's own column naming."""
+    letters = ""
+    while index > 0:
+        index, remainder = divmod(index - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return letters
+
+
+def iter_cells(source):
+    """Yield ``(sheet, row, column, value)`` for every populated cell.
+
+    Deliberately **not** built on ``pandas.read_excel``. That function treats
+    the first row as column names, so any VIN sitting on row 1 - which is every
+    file exported without a header - is consumed into the frame's columns and
+    never scanned. Reading raw cells means no row is special, and the position
+    reported back is a real Excel reference like ``Sheet1!B7``.
+    """
+    name = str(getattr(source, "name", source) or "").lower()
+
+    if name.endswith((".csv", ".txt", ".tsv")):
+        yield from _iter_delimited(source, name)
+        return
+
+    from openpyxl import load_workbook
+
+    workbook = load_workbook(source, read_only=True, data_only=True)
+    try:
+        for worksheet in workbook.worksheets:
+            for row in worksheet.iter_rows():
+                for cell in row:
+                    if cell.value is None:
+                        continue
+                    yield (
+                        worksheet.title,
+                        cell.row,
+                        _column_letter(cell.column),
+                        cell.value,
+                    )
+    finally:
+        workbook.close()
+
+
+def _iter_delimited(source, name: str):
+    """CSV/TSV, read as raw rows with no header row and no type coercion."""
+    import csv
+    import io as _io
+
+    data = source.read() if hasattr(source, "read") else open(source, "rb").read()
+    if isinstance(data, bytes):
+        for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+            try:
+                text = data.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            text = data.decode("utf-8", errors="replace")
+    else:
+        text = data
+
+    delimiter = "\t" if name.endswith(".tsv") else ","
+    if not name.endswith(".tsv"):
+        try:
+            delimiter = csv.Sniffer().sniff(text[:4096], delimiters=",;\t|").delimiter
+        except csv.Error:
+            delimiter = ","
+
+    sheet = "CSV"
+    for row_index, row in enumerate(csv.reader(_io.StringIO(text), delimiter=delimiter), start=1):
+        for col_index, value in enumerate(row, start=1):
+            if value is None or not str(value).strip():
+                continue
+            yield sheet, row_index, _column_letter(col_index), value
+
+
 def extract_from_workbook(source, *, require_label: bool = False) -> ExtractionResult:
-    """Scan every sheet of a workbook (or a CSV).
+    """Scan every cell of every sheet.
 
     ``source`` is a path or a file-like object - Streamlit's uploaded file works
-    directly. Every sheet is scanned, not just the first: VINs hide in the
-    second tab more often than anyone would like.
+    directly. Nothing is treated as a header, so row 1 is scanned like any other.
     """
-    import pandas as pd
-
     combined = ExtractionResult()
+    seen_sheets: dict[str, None] = {}
 
-    name = getattr(source, "name", str(source))
     try:
-        if str(name).lower().endswith((".csv", ".txt", ".tsv")):
-            separator = "\t" if str(name).lower().endswith(".tsv") else None
-            frames = {
-                "CSV": pd.read_csv(source, dtype=str, sep=separator,
-                                   engine="python", keep_default_na=False)
-            }
-        else:
-            # sheet_name=None reads every sheet. dtype=str stops pandas turning
-            # a numeric-looking VIN into a float and losing leading zeros.
-            frames = pd.read_excel(source, sheet_name=None, dtype=str)
+        cells = list(iter_cells(source))
     except Exception as exc:  # noqa: BLE001 - surfaced to the user, not raised
-        combined.errors.append(f"Could not read the file: {exc}")
-        return combined
-
-    if not frames:
-        combined.errors.append("The file contains no readable sheets.")
-        return combined
-
-    for sheet_name, frame in frames.items():
-        if frame is None or frame.empty:
-            combined.sheets_scanned.append(str(sheet_name))
-            continue
-        part = extract_from_dataframe(
-            frame, sheet_name=str(sheet_name), require_label=require_label
+        combined.errors.append(
+            f"Could not read the file: {exc}. "
+            f"Supported formats are .xlsx, .xlsm, .csv, .tsv and .txt "
+            f"(the older .xls format must be re-saved as .xlsx)."
         )
-        combined.occurrences.extend(part.occurrences)
-        combined.rejected.extend(part.rejected)
-        combined.sheets_scanned.extend(part.sheets_scanned)
-        combined.cells_scanned += part.cells_scanned
+        return combined
 
+    if not cells:
+        combined.errors.append("The file contains no readable cells.")
+        return combined
+
+    for sheet, row, column, value in cells:
+        seen_sheets.setdefault(sheet, None)
+        combined.cells_scanned += 1
+
+        candidates = extract_from_text(value, require_label=require_label)
+        handled: set[str] = set()
+
+        for candidate in candidates:
+            handled.add(candidate.vin)
+            occurrence = Occurrence(
+                vin=candidate.vin,
+                sheet=sheet,
+                row=row,
+                column=column,
+                original_text=str(value),
+                label=candidate.label,
+                verdict=candidate.verdict,
+                reason=candidate.reason,
+                check_digit_valid=candidate.check_digit_valid,
+            )
+            if candidate.usable:
+                combined.occurrences.append(occurrence)
+            elif candidate.worth_reporting:
+                combined.rejected.append(occurrence)
+
+        for token, length in find_near_misses(value, handled):
+            combined.near_misses.append(
+                NearMiss(token, length, sheet, row, column, str(value))
+            )
+
+    combined.sheets_scanned = list(seen_sheets)
     return combined
+
+
+def find_near_misses(text: Any, handled: set[str]) -> list[tuple[str, int]]:
+    """Runs that are nearly VIN-length but were not accepted.
+
+    This is the answer to "are we missing any?". A 16- or 18-character run in a
+    VIN column is almost certainly a real vehicle with a dropped or doubled
+    character, and it would otherwise vanish without trace.
+    """
+    if text is None:
+        return []
+    normalised = normalise_text(text)
+    if not normalised.strip():
+        return []
+
+    out: list[tuple[str, int]] = []
+    seen: set[str] = set()
+    for match in NEAR_MISS_PATTERN.finditer(normalised):
+        token = re.sub(r"[\s\-]", "", match.group(0))
+        if len(token) == 17 or not (NEAR_MISS_MIN <= len(token) <= NEAR_MISS_MAX):
+            continue                       # 17 was already classified above
+        if token in handled or token in seen:
+            continue
+        # A run that swallows a VIN we already extracted is not a miss. This is
+        # what "VIN5UXKR0C56JL070851" looks like once the label is split off:
+        # the 17 characters are reported, and the 20-character span around them
+        # would otherwise be listed as though something had been overlooked.
+        if any(found and found in token for found in handled):
+            continue
+        # A run made almost entirely of letters is a word, not a broken VIN.
+        if sum(1 for c in token if c.isdigit()) == 0:
+            continue
+        seen.add(token)
+        out.append((token, len(token)))
+    return out
 
 
 # --- Export -----------------------------------------------------------------
@@ -404,7 +620,7 @@ def to_workbook_bytes(result: ExtractionResult) -> bytes:
 
     import pandas as pd
 
-    columns = ["Sheet", "Excel Row", "Column", "VIN", "Label", "Status",
+    columns = ["Cell", "Sheet", "Excel Row", "Column", "VIN", "Label", "Status",
                "Check Digit", "Note", "Original Text"]
 
     all_rows = [o.to_row() for o in result.occurrences]
@@ -418,9 +634,20 @@ def to_workbook_bytes(result: ExtractionResult) -> bytes:
                             "Note": "No candidates were rejected."}], columns=columns)
     )
 
+    near_columns = ["Cell", "Sheet", "Token", "Length", "Why not a VIN", "Original Text"]
+    near_rows = [n.to_row() for n in result.near_misses]
+    near_frame = (
+        pd.DataFrame(near_rows, columns=near_columns) if near_rows
+        else pd.DataFrame([{**{c: "" for c in near_columns},
+                            "Why not a VIN": "No near misses - nothing of VIN-like "
+                                             "length went unaccounted for."}],
+                          columns=near_columns)
+    )
+
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         all_frame.to_excel(writer, sheet_name="All VINs", index=False)
         unique_frame.to_excel(writer, sheet_name="Unique VINs", index=False)
         rejected_frame.to_excel(writer, sheet_name="Excluded", index=False)
+        near_frame.to_excel(writer, sheet_name="Near Misses", index=False)
     return buffer.getvalue()

@@ -204,7 +204,9 @@ class TestDataFrameScanning:
         })
         result = extract_from_dataframe(frame, "Stock")
         assert set(result.unique_vins) == {VALID, VALID_2, VALID_3}
-        assert result.cells_scanned == 6
+        # 3 columns x 2 rows, plus the 3 column names - which are data too when
+        # the source file had no header row.
+        assert result.cells_scanned == 9
 
     def test_row_numbers_match_excel(self):
         """DataFrame row 0 is Excel row 2, because of the header."""
@@ -247,12 +249,14 @@ class TestWorkbookScanning:
         assert set(result.unique_vins) == {VALID, VALID_2, VALID_3}
         assert "Second Tab" in result.sheets_scanned
 
-    def test_export_has_three_sheets(self, workbook):
+    def test_export_has_four_sheets(self, workbook):
         from openpyxl import load_workbook
 
         result = extract_from_workbook(workbook)
         exported = load_workbook(io.BytesIO(to_workbook_bytes(result)))
-        assert exported.sheetnames == ["All VINs", "Unique VINs", "Excluded"]
+        assert exported.sheetnames == [
+            "All VINs", "Unique VINs", "Excluded", "Near Misses",
+        ]
         assert exported["All VINs"].max_row == len(result.occurrences) + 1
 
     def test_unreadable_file_reports_an_error_rather_than_raising(self):
@@ -276,7 +280,9 @@ class TestExportShape:
         from app.services.vin_extraction import ExtractionResult
 
         exported = load_workbook(io.BytesIO(to_workbook_bytes(ExtractionResult())))
-        assert exported.sheetnames == ["All VINs", "Unique VINs", "Excluded"]
+        assert exported.sheetnames == [
+            "All VINs", "Unique VINs", "Excluded", "Near Misses",
+        ]
 
     def test_columns_are_not_duplicated(self):
         """The original script listed "VIN" twice in its empty-frame columns."""
@@ -286,3 +292,127 @@ class TestExportShape:
         exported = openpyxl.load_workbook(io.BytesIO(to_workbook_bytes(ExtractionResult())))
         headers = [c.value for c in exported["All VINs"][1]]
         assert len(headers) == len(set(headers)), f"duplicate column in {headers}"
+
+
+class TestRawCellScanning:
+    """Regressions that made real VINs disappear from real files."""
+
+    @staticmethod
+    def _book(rows, sheet="Sheet1", second=None):
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet
+        for row in rows:
+            ws.append(row)
+        if second is not None:
+            ws2 = wb.create_sheet("Second")
+            for row in second:
+                ws2.append(row)
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        buffer.name = "book.xlsx"
+        return buffer
+
+    def test_vin_on_row_one_is_not_eaten_as_a_header(self):
+        """The bug that lost a VIN from every headerless export.
+
+        pandas.read_excel turns row 1 into column names, so a file whose data
+        starts immediately lost its first record with no error and no warning.
+        Cells are now read raw, and no row is special.
+        """
+        result = extract_from_workbook(self._book([[VALID], [VALID_2], [VALID_3]]))
+        assert set(result.unique_vins) == {VALID, VALID_2, VALID_3}
+
+    def test_vin_sitting_in_the_header_row_is_found(self):
+        result = extract_from_workbook(self._book([["Ref", VALID], ["A1", VALID_2]]))
+        assert set(result.unique_vins) == {VALID, VALID_2}
+
+    def test_title_rows_above_the_header_do_not_shift_anything(self):
+        result = extract_from_workbook(self._book([
+            ["MONTHLY STOCK REPORT"], [], ["Ref", "VIN"], ["A1", VALID],
+        ]))
+        assert result.unique_vins == [VALID]
+
+    def test_every_sheet_is_scanned(self):
+        result = extract_from_workbook(
+            self._book([["nothing"]], second=[["VIN"], [VALID]])
+        )
+        assert VALID in result.unique_vins
+        assert "Second" in result.sheets_scanned
+
+    def test_position_is_a_real_excel_reference(self):
+        result = extract_from_workbook(self._book([["Ref", "VIN"], ["A1", VALID]], sheet="Stock"))
+        assert result.occurrences[0].cell_ref == "Stock!B2"
+
+    def test_unreadable_file_names_the_supported_formats(self):
+        broken = io.BytesIO(b"not a spreadsheet at all")
+        broken.name = "broken.xlsx"
+        result = extract_from_workbook(broken)
+        assert result.errors
+        assert ".xls" in result.errors[0]
+
+
+class TestTextNormalisation:
+    """Each of these hid a real VIN before the normalisation pass existed."""
+
+    @pytest.mark.parametrize("cell,description", [
+        (f"VIN{VALID}", "label glued to the VIN with no separator"),
+        (f"CHASSIS{VALID}", "chassis glued"),
+        (f"CH{VALID}", "CH glued"),
+        ("5UXKR0C5\u20136JL070851", "en dash from Excel autocorrect"),
+        ("5UXKR0C5\u20146JL070851", "em dash"),
+        (f"\u200b{VALID}", "zero-width space from a web paste"),
+        (f"{VALID}\ufeff", "byte-order mark"),
+        (f"VIN:\u00a0{VALID}", "non-breaking space after the label"),
+        (f"  {VALID}  ", "padding"),
+        (f"{VALID.lower()}", "lowercase"),
+    ])
+    def test_recovered(self, cell, description):
+        assert [c.vin for c in reported(cell) if c.usable] == [VALID], description
+
+
+class TestNearMisses:
+    """Making the gaps visible is what turns "some are missing" into a list."""
+
+    def _scan(self, value):
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        wb.active.append([value])
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        buffer.name = "b.xlsx"
+        return extract_from_workbook(buffer)
+
+    def test_sixteen_character_run_is_reported(self):
+        """A dropped character is the commonest real corruption."""
+        result = self._scan("5UXKR0C56JL07085")
+        assert [n.token for n in result.near_misses] == ["5UXKR0C56JL07085"]
+        assert result.near_misses[0].length == 16
+
+    def test_eighteen_character_run_is_reported(self):
+        result = self._scan("5UXKR0C56JL0708512")
+        assert result.near_misses[0].length == 18
+
+    def test_a_valid_vin_is_not_a_near_miss(self):
+        result = self._scan(VALID)
+        assert result.near_misses == []
+        assert result.unique_vins == [VALID]
+
+    def test_prose_is_not_a_near_miss(self):
+        assert self._scan("Awaiting paperwork from the supplier").near_misses == []
+
+    def test_near_miss_carries_its_cell(self):
+        result = self._scan("5UXKR0C56JL07085")
+        assert result.near_misses[0].column == "A"
+        assert result.near_misses[0].row == 1
+
+    def test_run_containing_an_extracted_vin_is_not_a_near_miss(self):
+        """A glued label leaves a 20-character span around a VIN we did find."""
+        result = self._scan(f"VIN{VALID}")
+        assert result.unique_vins == [VALID]
+        assert result.near_misses == []
